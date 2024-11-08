@@ -1,0 +1,145 @@
+---
+title: "Mobile Device Usage"
+execute:
+  warning: false
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: inline
+---
+
+## Exploratory Data Analysis Of Mobile Device Usage Data
+
+The purpose of this document is to use summary statistics and plots to better understand the mobile device usage data, then to use the knowledge to inform the creation of an app that allows users to explore the data themselves. To start this process the data has been downloaded from Kaggle.com and will be read in using functions from the tidyverse.
+
+```{r}
+# loading in relevant packages
+library(tidyverse)
+library(GGally) # will be used to create scatter plot matrices
+
+# reading in data
+device_data <- read_csv("user_behavior_dataset.csv")
+device_data
+```
+
+Now I am going to check it for NA values and rename columns so they are easier to use. 
+
+```{r}
+# Renaming columns
+device_data <- device_data |> 
+  rename(
+    user = `User ID`, 
+    device = `Device Model`,
+    OS = `Operating System`,
+    app_time = `App Usage Time (min/day)`, # Make sure to remember the time scales and other scales
+    screen_time = `Screen On Time (hours/day)`,
+    battery_drain = `Battery Drain (mAh/day)`,
+    apps_installed = `Number of Apps Installed`,
+    data_usage = `Data Usage (MB/day)`,
+    age = Age,
+    gender = Gender, 
+    user_class = `User Behavior Class` 
+  )
+
+# Checking for NA data
+sum_na <- function(col){
+  sum(is.na(col))
+}
+device_data |>
+  summarize(across(everything(), sum_na))
+```
+
+### One-way and Two-way Contingency Tables
+
+Now that our data is loaded in and in a more usable format, we can start making summary statistics by creating contingency tables of the categorical variables. To start we are going to create a function that allows us to quickly run through every categorical variable and make a one-way contingency table, after that we will do the same thing but use it to make two-way tables.
+
+```{r}
+# Creating One-way contingency table function
+make1way <- function(data){
+  valid_cat_var <- c("device", "OS", "gender") # Setting Vars to run 
+  tables <- list()
+    
+  for (var in colnames(data)){
+    if (var %in% valid_cat_var){
+      tables[[var]] <- table(data[[var]])
+    }
+  }
+  return(tables)
+}
+
+# Testing make1way
+one_way_tables <- make1way(device_data) 
+one_way_tables
+
+# Creating two-way contingency table function
+make2way <- function(data) {
+  valid_cat_var <- c("device", "OS", "gender") 
+  tables <- list() 
+
+  for (var1 in valid_cat_var) {
+    for (var2 in valid_cat_var) {
+      if (var1 == var2) next
+      
+      if (var1 %in% colnames(data) && var2 %in% colnames(data)) {
+          table_name <- paste(var1, var2, sep = "_")
+           tables[[table_name]] <- table(data[[var1]], data[[var2]]) 
+      }
+    }
+  }
+  return(tables) 
+} 
+
+# Testing make2way\
+two_way_tables <- make2way(device_data)
+two_way_tables
+```
+
+### Numerical summaries for quantitative variables by categorical variable levels
+
+The next step we are going to take is to make some numerical summaries for each numerical variable subsetted for each level of each categorical variable. This way we have can store a list of tibbles that we can later use in our app, that way a user can quickly access the numerical summaries they wish to explore.
+
+```{r}
+# Creating function to make summaries
+ numeric_summarizer<- function(data){
+  valid_cat_var <- c("device", "OS", "gender")
+  valid_num_var <- names(select_if(data, is.numeric)) # Selecting all numeric variables
+  valid_num_var <- valid_num_var[!valid_num_var %in% c("user", "user_class")] # Getting rid of unnecessary columns
+  results <- list()
+  
+# Looping for cat and num vars
+  for (cat_var in valid_cat_var){
+    for (num_var in valid_num_var){
+      
+      if (cat_var %in% colnames(data) && num_var %in% colnames(data))
+      summary_data <- data |>
+      group_by(!!sym(cat_var)) |>
+      summarize(across(num_var, .fns = list("mean" = mean, 
+                                       "median" = median,
+                                       "var" = var,
+                                       "sd" = sd,
+                                       "IQR" = IQR))) 
+      
+      # Storing results as a list with names
+      results[[paste(cat_var, num_var, sep = "_")]] <- summary_data
+    }
+  }
+  return(results)
+ } 
+# Saving results as a list
+num_sums <- numeric_summarizer(device_data)
+
+```
+
+### Plots for Mobile Device Data
+
+Now we are going to create 6 different plots that can be referenced by our users in App that we will be building. Specifically, I want to look at plots of screen time by age, screen time by gender, screen time by device, apps installed by age, apps installed by gender, and apps installed by screentime. By focusing on only two numerical variables we will be able to create a 
+
+```{r}
+# Creating scatter plot matrix of correlations between numeric variables
+device_data |> 
+  ggpairs(columns = c("app_time", "screen_time", "battery_drain", "apps_installed", "data_usage", "age"),
+          upper = list(continuous = wrap("cor", size = 5)),
+          lower = list(combo = wrap("facethist", bins = 30)),
+          diag = list(continuous = wrap("densityDiag", alpha = 0.5))) ## GGally is used to create the matrix
+```
+
