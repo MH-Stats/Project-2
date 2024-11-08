@@ -15,14 +15,13 @@ The purpose of this document is to use summary statistics and plots to better un
 ```{r}
 # loading in relevant packages
 library(tidyverse)
-library(GGally) # will be used to create scatter plot matrices
 
 # reading in data
 device_data <- read_csv("user_behavior_dataset.csv")
 device_data
 ```
 
-Now I am going to check it for NA values and rename columns so they are easier to use. 
+Now I am going to check it for NA values and rename columns so they are easier to use. Also why I am at I am going to make the categorical variables into factor variables as factors run better with a number of R functions.
 
 ```{r}
 # Renaming columns
@@ -47,6 +46,41 @@ sum_na <- function(col){
 }
 device_data |>
   summarize(across(everything(), sum_na))
+
+# Using function to make categorical variables into factors
+factorizer <- function(data){
+  valid_cat_vars <- c("device", "OS", "gender")
+  
+
+  # Creating labels for cat vars
+  if("device" %in% colnames(data)){
+    data <- data |>
+      mutate(
+        device = factor(device, 
+                        levels = c("Google Pixel 5", "OnePlus 9", "Xiaomi Mi 11", "Samsung Galaxy S21", "iPhone 12"), 
+                        labels = c("Google Pixel 5", "OnePlus 9", "Xiaomi Mi 11", "Samsung Galaxy S21", "iPhone 12"))
+      )
+  }
+  if("OS" %in% colnames(data)){
+    data <- data |>
+      mutate(
+        OS = factor(OS, 
+                        levels = c("Android", "iOS"), 
+                        labels = c("Android", "iOS"))
+      )
+  }
+  if("gender" %in% colnames(data)){
+    data <- data |>
+      mutate(
+        gender = factor(gender, 
+                        levels = c("Male", "Female"), 
+                        labels = c("Male", "Female"))
+      )
+  }
+  return(data)
+}
+# running function on data
+device_data <- factorizer(device_data)
 ```
 
 ### One-way and Two-way Contingency Tables
@@ -132,14 +166,90 @@ num_sums <- numeric_summarizer(device_data)
 
 ### Plots for Mobile Device Data
 
-Now we are going to create 6 different plots that can be referenced by our users in App that we will be building. Specifically, I want to look at plots of screen time by age, screen time by gender, screen time by device, apps installed by age, apps installed by gender, and apps installed by screentime. By focusing on only two numerical variables we will be able to create a 
+Now we are going to create 6 different plots that can be referenced by our users in App that we will be building. Specifically, I want to look at plots of screen time by age, screen time by gender, screen time by device, apps installed by age, apps installed by gender, and apps installed by screen time. By focusing on only two numerical variables we will be able to create a 
+
+```{r, message = FALSE, fig.widith = 10, fig.height = 8}
+# Loading in GGally
+library(GGally)
+
+# Creating scatter plot matrix of correlations between numeric variables using GGally (First not covered in class plot)
+ggpairs(device_data,
+  columns = c("app_time", "screen_time", "battery_drain", "apps_installed", "data_usage", "age"),
+  title = "Numerical Variable Scatter Plot Matrix",
+  upper = list(continuous = "cor"),
+  proportions = 10
+)
+
+# Unloading GGally 
+unloadNamespace("GGally")
+```
 
 ```{r}
-# Creating scatter plot matrix of correlations between numeric variables
-device_data |> 
-  ggpairs(columns = c("app_time", "screen_time", "battery_drain", "apps_installed", "data_usage", "age"),
-          upper = list(continuous = wrap("cor", size = 5)),
-          lower = list(combo = wrap("facethist", bins = 30)),
-          diag = list(continuous = wrap("densityDiag", alpha = 0.5))) ## GGally is used to create the matrix
+# subsetting data to create barplot of devices by gender
+device_gender_bar <- device_data |>
+  group_by(device, gender) |>
+  summarize(count = n())
+  
+# creating plot
+ggplot(device_gender_bar, aes(x = device, y = count, fill = gender)) +
+       geom_bar(stat="identity") +
+       xlab("Device") +
+       ylab("Device Count") +
+       ggtitle("Device By Gender") +
+       scale_fill_discrete(name="Gender", labels=c("Male", "Female"))
+```
+
+```{r}
+# boxplot of device by screen time
+device_screen_boxplot <- ggplot(device_data, aes(x = device, y = screen_time)) +
+  geom_boxplot(position = "identity") +
+  ggtitle("Screen Time by Device") +
+  xlab("Device")
+  ylab("Screen Time (hours/day)")
+```
+
+```{r, fig.widith = 10, fig.height = 8}
+# Creating scatterplot of apps installed by device subsetted by gender 
+apps_by_device_scatter <- ggplot(device_data, aes(x = device, y = apps_installed, color = gender)) +
+  geom_point(position = "jitter") +
+  ggtitle("Scatterplot of Apps Installed by Device and gender") + 
+  ylab("Apps Installed") +
+  xlab("Device")
+
+apps_by_device_scatter
+
+# Adding facting to the plot
+apps_by_device_scatter <- apps_by_device_scatter + geom_point() +
+  facet_wrap(~ gender)
+apps_by_device_scatter
+```
+
+Now I am going to load in ggridges so I can create ridgeline plots of battery drain by device. Additionally, I will make one final plot where I will be looking at a scatter plot of app time by apps installed colored by device.
+
+```{r}
+#loading in ggridges
+library(ggridges)
+
+# creating ridgeline plot of battery drain by device (second not covered in class plot)
+drain_by_device_ridgeline <- ggplot(device_data, aes(x = battery_drain, y = device)) + 
+                             geom_density_ridges() +
+                             ggtitle("Ridgeline Plot of Battery Drain by Device") +
+                             xlab("Battery Drain (mAh/day)") +
+                             ylab("Device")
+drain_by_device_ridgeline
+
+# Subsetting data by devices
+apptime_by_apps <- device_data |>
+  group_by(device) |>
+  summarize(count = n())
+
+# Creating scatterplot
+apptime_by_apps_plot <- ggplot(device_data, aes(x = apps_installed, y = app_time, color = device)) +
+  geom_point(position = "jitter") +
+  ggtitle("Scatterplot of App Usage Time by Apps Installed") + 
+  ylab("App Usage Time (min/day)") +
+  xlab("Apps Installed")
+ 
+apptime_by_apps_plot
 ```
 
