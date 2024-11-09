@@ -253,3 +253,31 @@ apptime_by_apps_plot <- ggplot(device_data, aes(x = apps_installed, y = app_time
 apptime_by_apps_plot
 ```
 
+### Helper Code to Run APP
+
+```{r}
+# Creating list of Num and Cat Vars
+cat_var <- c("device", "gender")
+num_var <- c("App Usage (Time)", "Screen Time", "Battery Drain", "Apps Installed", "Data Usage", "Age")
+
+# Creating list of numerical variable max and mins
+max_min_maker <- function(data) {
+  valid_var <- c("app_time", "screen_time", "battery_drain", "apps_installed", "data_usage", "age")
+    results <- list()
+  for (var in valid_var){
+      if (var %in% colnames(data)){
+      min_value <- min(data[[var]])
+      max_value <- max(data[[var]])
+        
+      results[[var]] <- c(min = min_value, max = max_value)
+      
+    }
+  }
+  return(results)
+}
+# Creating list of values
+min_max_summary <- max_min_maker(device_data)
+
+# Extracting individual vectors
+```
+
