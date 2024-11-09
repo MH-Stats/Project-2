@@ -63,6 +63,15 @@ ui <- fluidPage(
                DT::dataTableOutput("data_table"),
                downloadButton(outputId = "downloaded_data",
                               label = "Downloaded Data")),
+      tabPanel("Data Exploration",
+               h2("Select Numerical Variable for Summary"),
+               selectInput("num_sum",
+                           "Numerical Variable ",
+                           choices = num_var),
+      
+               
+               )
+      
       )
     )
   )
@@ -230,6 +239,10 @@ server <- function(input, output, session) {
     }
   )
     
+
+  
+  
+  
 }
 
 # Run the application 
